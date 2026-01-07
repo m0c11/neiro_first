@@ -21,7 +21,25 @@ cv2.line(picture, (0, picture.shape[0]//2), (100, picture.shape[0]//2), (121, 20
 #для круга: куда это делать, центр, радиус, цвет, жирность(FILLED - закрасить)
 cv2.circle(picture, (picture.shape[1]//2, picture.shape[0]//2), 50, (0, 0, 255), thickness=cv2.FILLED)
 
+
+#чтобы отразить картинку по вертикале(0), горизонтали(1) или и так и так(-1)
+picture = cv2.flip(picture, 1)
+
+# функция для вращения, куда мы подаем изображение и градус вращения
+def rotate(image, angle):
+    height, width = image.shape[:2] # забираем высоту и ширину изображения
+    point = (height // 2, width // 2) # точка вращения
+
+    mat = cv2.getRotationMatrix2D(point, angle, 1) # создаем матрицу, засчет которой будем производить вращение
+    # у матрицы третье значение это во сколько раз увеличится изображение
+    
+    
+    return cv2.warpAffine(image, mat, (width, height)) #функция как раз таки для того, чтобы повернуть изображение1 
+
+
 #это текст: куда это делать, где начинать, шрифт, размер, цвет, жирность
 cv2.putText(picture, 'Penisik', (300, 150), cv2.FONT_ITALIC, 1, (0, 255, 0), thickness=1)
+
+picture = rotate(picture, 90)
 cv2.imshow('Picture', picture)
 cv2.waitKey(0)
