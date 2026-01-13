@@ -1,8 +1,39 @@
 import cv2
 import numpy as np
 
-def is_smile_in_face(smile_rect, face_rect, threshold=0.8):
+def draw_smiley_face(img, x, y, size=50, is_smiling=True):
+    """
+    Рисует смайлик в указанных координатах
+    """
+    center = (x + size//2, y + size//2)
     
+    # Цвет лица зависит от наличия улыбки
+    face_color = (0, 255, 255) if is_smiling else (100, 100, 100)  # Желтый или серый
+    
+    # Лицо
+    cv2.circle(img, center, size//2, face_color, -1)
+    cv2.circle(img, center, size//2, (0, 0, 0), 2)  # Черная обводка
+    
+    # Глаза
+    eye_radius = size//10
+    left_eye = (center[0] - size//5, center[1] - size//10)
+    right_eye = (center[0] + size//5, center[1] - size//10)
+    
+    cv2.circle(img, left_eye, eye_radius, (0, 0, 0), -1)
+    cv2.circle(img, right_eye, eye_radius, (0, 0, 0), -1)
+    
+    # Рот - улыбка или прямая линия
+    if is_smiling:
+        # Улыбка (дуга)
+        cv2.ellipse(img, center, (size//4, size//6), 0, 0, 180, (0, 0, 0), 2)
+    else:
+        # Прямой рот
+        cv2.line(img, 
+                (center[0] - size//4, center[1] + size//10),
+                (center[0] + size//4, center[1] + size//10),
+                (0, 0, 0), 2)
+
+def is_smile_in_face(smile_rect, face_rect, threshold=0.8):
     sx, sy, sw, sh = smile_rect
     fx, fy, fw, fh = face_rect
     
@@ -40,17 +71,12 @@ def main():
             break
         
         img = cv2.resize(img, (680, 540))
-        img = cv2.flip(
-            img,
-            1
-        )
+        img = cv2.flip(img, 1)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        
         
         # Находим лица
         faces = face_cascade.detectMultiScale(
-            image= gray, 
+            image=gray, 
             scaleFactor=1.1, 
             minNeighbors=5,
             minSize=(50, 50)
@@ -58,84 +84,40 @@ def main():
         
         # Список для хранения всех улыбок
         all_smiles = []
+        current_smile_state = False
         
         # Находим улыбки во всем изображении
         smiles = smile_cascade.detectMultiScale(
-            image= gray,
+            image=gray,
             scaleFactor=1.8,
             minNeighbors=25,
             minSize=(25, 25)
         )
         
         # Рисуем лица и проверяем улыбки
-        for (fx, fy, fw, fh) in faces:
-            cv2.rectangle(
-                img= img, 
-                pt1= (fx, fy), 
-                pt2= (fx + fw, fy + fh), 
-                color= (255, 0, 0), 
-                thickness= 2
-            )
-
-            cv2.putText(
-                img= img, 
-                text= 'Face', 
-                org= (fx, fy - 10),
-                fontFace= cv2.FONT_HERSHEY_SIMPLEX, 
-                fontScale= 0.5, 
-                color= (255, 0, 0), 
-                thickness= 1
-            )
+        if len(faces) > 0:
+            # Берем первое (главное) лицо
+            fx, fy, fw, fh = faces[0]
             
-            # Проверяем каждую улыбку
-            for (sx, sy, sw, sh) in smiles:
-                smile_rect = (sx, sy, sw, sh)
-                face_rect = (fx, fy, fw, fh)
+            # Рисуем смайлик над лицом (на основном изображении)
+            icon_x = fx + fw//2 - 25
+            icon_y = fy - 80
+            
+            if icon_y >= 0 and icon_x >= 0 and icon_x + 50 < img.shape[1]:
+                # Проверяем каждую улыбку
+                for (sx, sy, sw, sh) in smiles:
+                    smile_rect = (sx, sy, sw, sh)
+                    face_rect = (fx, fy, fw, fh)
+                    
+                    if is_smile_in_face(smile_rect, face_rect, threshold=0.6):
+                        
+                        all_smiles.append((sx, sy, sw, sh))
+                        current_smile_state = True
                 
-                if is_smile_in_face(smile_rect, face_rect, threshold=0.6):
-                    # Рисуем улыбку
-                    cv2.rectangle(
-                        img= img, 
-                        pt1= (sx, sy), 
-                        pt2= (sx+sw, sy+sh), 
-                        color= (0, 255, 0),
-                        thickness= 2
-                    )
-                    
-                    cv2.putText(
-                        img= img, 
-                        text= 'Smile', 
-                        org= (sx, sy-10),
-                        fontFace= cv2.FONT_HERSHEY_SIMPLEX, 
-                        fontScale= 0.5, 
-                        color= (0, 255, 0), 
-                        thickness=1
-                    )
-                    
-                    # Добавляем в список для статистики
-                    all_smiles.append((sx, sy, sw, sh))
+                # Рисуем интерактивный смайлик над лицом
+                draw_smiley_face(img, icon_x, icon_y, 50, current_smile_state)
         
-        # Статистика на кадре
-        cv2.putText(
-            img= img, 
-            text= f'Faces: {len(faces)}', 
-            org= (10, 30),
-            fontFace= cv2.FONT_HERSHEY_SIMPLEX, 
-            fontScale= 0.7, 
-            color= (255, 0, 0), 
-            thickness= 2
-        )
-        
-        cv2.putText(
-            img= img, 
-            text= f'Smiles in face: {len(all_smiles)}', 
-            org= (10, 60),
-            fontFace= cv2.FONT_HERSHEY_SIMPLEX, 
-            fontScale= 0.7, 
-            color= (0, 255, 0), 
-            thickness= 2
-        )
-        
+        # Показываем окно
         cv2.imshow('RESULT', img)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
